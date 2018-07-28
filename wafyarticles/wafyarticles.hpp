@@ -8,7 +8,7 @@
 using namespace eosio;
 using namespace std;
 
-class wafy : public contract
+class wafyarticles : public contract
 {
   public:
       using contract::contract;

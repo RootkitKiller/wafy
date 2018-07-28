@@ -1,7 +1,7 @@
-#include "wafy.hpp"
+#include "wafyarticles.hpp"
 #include <eosiolib/eosio.hpp>
 
-void wafy::createart(account_name byname,string title,string abstract,ipfshash_t arthash,cate_name_t catename){
+void wafyarticles::createart(account_name byname,string title,string abstract,ipfshash_t arthash,cate_name_t catename){
     // 校验参数
     require_auth(byname);
 
@@ -31,7 +31,7 @@ void wafy::createart(account_name byname,string title,string abstract,ipfshash_t
     });
 
 }
-void wafy::modifyart(account_name byname,string title,string abstract,uint64_t id,cate_name_t catename,ipfshash_t newarthash){
+void wafyarticles::modifyart(account_name byname,string title,string abstract,uint64_t id,cate_name_t catename,ipfshash_t newarthash){
     require_auth(byname);
 
     eosio_assert(title.size()<40,"错误：标题不超过40字节");
@@ -52,7 +52,7 @@ void wafy::modifyart(account_name byname,string title,string abstract,uint64_t i
         obj.arthash=newarthash;
     });
 }
-void wafy::deleteart(account_name byname,uint64_t id,cate_name_t catename){
+void wafyarticles::deleteart(account_name byname,uint64_t id,cate_name_t catename){
     require_auth(byname);
 
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
@@ -73,7 +73,7 @@ void wafy::deleteart(account_name byname,uint64_t id,cate_name_t catename){
         obj.subcatenum();
     });
 }
-void wafy::createcate(account_name byname,cate_name_t catename,string memo){
+void wafyarticles::createcate(account_name byname,cate_name_t catename,string memo){
     require_auth(byname);
 
     eosio_assert(memo.size()<400,"错误：分类简介需要小于400字节");
@@ -88,7 +88,7 @@ void wafy::createcate(account_name byname,cate_name_t catename,string memo){
         obj.articlenum=0;
     });
 }
-void wafy::createscr(account_name byname,cate_name_t catename){
+void wafyarticles::createscr(account_name byname,cate_name_t catename){
     require_auth(byname);
 
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
@@ -103,7 +103,7 @@ void wafy::createscr(account_name byname,cate_name_t catename){
         obj.catename=catename;
     });
 }
-void wafy::createcom(account_name byname,string comcontent,cate_name_t catename,uint64_t parid,uint16_t indexnum){
+void wafyarticles::createcom(account_name byname,string comcontent,cate_name_t catename,uint64_t parid,uint16_t indexnum){
     require_auth(byname);
 
     eosio_assert(comcontent.size()<400,"错误：评论长度不能超过400字节");
@@ -123,7 +123,7 @@ void wafy::createcom(account_name byname,string comcontent,cate_name_t catename,
     });
     
 }
-void wafy::modifycom(account_name byname,uint64_t id,cate_name_t catename,string newcontent){
+void wafyarticles::modifycom(account_name byname,uint64_t id,cate_name_t catename,string newcontent){
     require_auth(byname);
 
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
@@ -139,7 +139,7 @@ void wafy::modifycom(account_name byname,uint64_t id,cate_name_t catename,string
         obj.comcontent=newcontent;
     });
 }
-void wafy::deletecom(account_name byname,uint64_t id,cate_name_t catename,uint16_t indexnum){
+void wafyarticles::deletecom(account_name byname,uint64_t id,cate_name_t catename,uint16_t indexnum){
     require_auth(byname);
 
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
@@ -168,7 +168,7 @@ void wafy::deletecom(account_name byname,uint64_t id,cate_name_t catename,uint16
     }
     
 }
-void wafy::setbestcom(account_name byname,uint64_t artid,uint64_t comid,cate_name_t catename){
+void wafyarticles::setbestcom(account_name byname,uint64_t artid,uint64_t comid,cate_name_t catename){
     require_auth(byname);
 
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
@@ -191,4 +191,4 @@ void wafy::setbestcom(account_name byname,uint64_t artid,uint64_t comid,cate_nam
         obj.isend=1;
     });
 }
-EOSIO_ABI( wafy, (createart)(modifyart)(deleteart)(createcate)(createscr)(createcom)(modifycom)(deletecom)(setbestcom))
+EOSIO_ABI( wafyarticles, (createart)(modifyart)(deleteart)(createcate)(createscr)(createcom)(modifycom)(deletecom)(setbestcom))
