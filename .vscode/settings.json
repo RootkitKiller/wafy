@@ -18,6 +18,8 @@
         "filesystem": "cpp",
         "__locale": "cpp",
         "locale": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "algorithm": "cpp",
+        "random": "cpp"
     }
 }
