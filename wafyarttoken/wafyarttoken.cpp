@@ -108,31 +108,34 @@ void wafyarttoken::add_balance( account_name owner, asset value, account_name ra
    }
 }
 uint64_t wafyarttoken::getmzbal(account_name byname){
-    accounts accomul(_self,byname);
-    auto accit=accomul.find(byname);
+    accounts accomul(N(wafyarttoken),byname);
+    auto accit=accomul.find(MZSYMBOL.name());
 
     if(accit==accomul.end()){
         return 0;
     }else{
-        if(accit->balance.amount>0)
+        if(accit->balance.amount>0){
             return accit->balance.amount;
-        else
+        }
+        else{
             return 0;
+        }
     }
 }
-void wafyarttoken::staketoken(account_name byname,uint64_t amount){
+void wafyarttoken::staketoken(account_name byname,asset quantity){
     require_auth(byname);
 
-    uint64_t theBalance = getmzbal(staker);
-    eosio_assert(theBalance > 0, "没有代币可以用来抵押");
+    uint64_t theBalance = getmzbal(byname);
+    eosio_assert(theBalance > 0, "错误：没有token可以用来抵押");
 
+    eosio_assert(quantity.symbol.name()==MZSYMBOL.name(),"错误：需要抵押MZ token");
+    eosio_assert( quantity.is_valid(), "invalid quantity" );
     
-    asset mzasset(amount*10000,MZSYMBOL);
-    transfer(byname, N(wafyarticles), mzasset, "stake token");
+    transfer(byname, N(wafyartvotes), quantity, "stake token");
 
     // inline action 
-    eosio::action theAction = action(permission_level{ N(eparticlectr), N(active) }, N(eparticlectr), N(brainmeart),
-                                    std::make_tuple(staker, amount));
+    eosio::action theAction = action(permission_level{ N(wafyarttoken), N(active) }, N(wafyartvotes), N(staketit),
+                                    std::make_tuple(N(wafyarttoken),byname, quantity.amount));
     theAction.send();
 }
 EOSIO_ABI( wafyarttoken, (create)(issue)(transfer)(staketoken) )

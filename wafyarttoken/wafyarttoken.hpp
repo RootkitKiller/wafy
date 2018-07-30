@@ -33,7 +33,7 @@ public:
                 string memo);
 
   // @abi action
-  void staketoken(account_name byname,uint64_t amount);
+  void staketoken(account_name byname,asset quantity);
 
   inline asset get_supply(symbol_name sym) const;
 
@@ -41,7 +41,7 @@ public:
 
 private:
 
-  symbol_type MZSYMBOL=S(4,"MZ");
+  symbol_type MZSYMBOL=symbol_type(string_to_symbol(4, "MZ"));;
   uint64_t getmzbal(account_name byname);
 
   // @abi table accounts i64

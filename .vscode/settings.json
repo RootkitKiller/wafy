@@ -20,6 +20,14 @@
         "locale": "cpp",
         "thread": "cpp",
         "algorithm": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "__functional_base": "cpp",
+        "array": "cpp",
+        "propagate_const": "cpp",
+        "future": "cpp",
+        "istream": "cpp",
+        "memory": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp"
     }
 }
