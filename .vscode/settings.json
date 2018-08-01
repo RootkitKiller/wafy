@@ -28,6 +28,13 @@
         "istream": "cpp",
         "memory": "cpp",
         "tuple": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "__bit_reference": "cpp",
+        "__hash_table": "cpp",
+        "__string": "cpp",
+        "__tree": "cpp",
+        "string_view": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp"
     }
 }
