@@ -98,13 +98,14 @@ class wafyartvotes : public eosio::contract {
 
             uint64_t        votenum;                //文章得票数
             uint64_t        addtick;                //根据得票数增发奖励
-            uint64_t        paytick;                //作者支付的金额
+            uint64_t        paytick;                //作者支付的金额,奖励给价值评论者的部分
 
             string          title;                  //文章标题
             string          abstract;               //文章摘要
             account_name    author;                 //文章作者
             ipfshash_t      arthash;                //文章保存在ipfs网络上的哈希值
             uint64_t        timestamp;              //文章创建的时间戳
+            uint64_t        modifynum;              //文章修改次数，设置为不超过10次
             uint64_t        isend;                  //文章是否发现价值评论
 
             uint64_t primary_key() const    { return id; }              //主键索引
@@ -113,7 +114,7 @@ class wafyartvotes : public eosio::contract {
             uint64_t get_isend() const      { return isend; }           //是否完结索引
             uint64_t get_vnum() const       { return votenum;}          //得票数索引
 
-            EOSLIB_SERIALIZE(article, (id)(votenum)(addtick)(paytick)(title)(abstract)(author)(arthash)(timestamp)(isend))
+            EOSLIB_SERIALIZE(article, (id)(votenum)(addtick)(paytick)(title)(abstract)(author)(arthash)(timestamp)(modifynum)(isend))
         };
         typedef multi_index<N(articles),article,
             indexed_by<N(byauthor), const_mem_fun<article,uint64_t,&article::get_author>>,
@@ -143,10 +144,16 @@ class wafyartvotes : public eosio::contract {
         // @abi table cates i64
         struct cate{
             account_name    catename;              //类别名称
-            uint64_t        reword;                //该分类当前的收益，来自于发表文章的人的60%比例
+            uint64_t        reword;                //该分类当前的收益，发放给投票者，来自于该分类的设置的比例
             uint64_t        votetick;              //该分类当前的投票数，部分奖励根据投票数分发给投票人
 
             uint64_t        paylimit;              //最小支付悬赏金额
+            double          comratio;              //价值评论分成比例
+            double          voteratio;             //投票者分成比例      
+            double          audiratio;             //审核者分成比例
+            double          devratio;              //项目开发资金分成比例
+            uint64_t        auditornum;            //设置审核者人数
+
             string          memo;                  //类别备注
             account_name    createname;            //类别创建者
             uint64_t        articlenum;            //包含的文章数
@@ -159,14 +166,50 @@ class wafyartvotes : public eosio::contract {
             void addcatenum() { articlenum++; } //递增类别中的文章计数
             void subcatenum() { articlenum--; } //递减类别中的文章计数
 
-            EOSLIB_SERIALIZE(cate,(catename)(reword)(votetick)(paylimit)(memo)(createname)(articlenum))
+            EOSLIB_SERIALIZE(cate,(catename)(reword)(votetick)(paylimit)(comratio)(voteratio)(audiratio)(devratio)(auditornum)(memo)(createname)(articlenum))
         };
         typedef multi_index<N(cates),cate,
             indexed_by<N(byvote),   const_mem_fun<cate,uint64_t,&cate::get_vote>>,
             indexed_by<N(bycreate), const_mem_fun<cate,uint64_t,&cate::get_create>>,
             indexed_by<N(byartnum), const_mem_fun<cate,uint64_t,&cate::get_artnum>>
             > cates;
-        
+
+        // 订阅table scope为byname
+        // @abi table subscribes i64
+        struct subscribe
+        {
+            uint64_t id;          //订阅id
+            account_name catename; //订阅的类别名称
+
+            uint64_t primary_key() const { return id; }    //主键索引
+            uint64_t get_cate() const { return catename; } //类别名称索引
+
+            EOSLIB_SERIALIZE(subscribe, (id)(catename))
+        };
+        typedef multi_index<N(subscribes),subscribe,
+            indexed_by<N(bycate),const_mem_fun<subscribe,uint64_t,&subscribe::get_cate>>
+            > subscribes;
+        // @abi table comments i64
+        struct comment
+        {
+            uint64_t id;          //类别id
+            uint64_t parid;       //父id
+            account_name author;  //评论作者
+            string comcontent;    //评论的内容
+            uint64_t timestamp;   //评论时间戳
+            uint16_t indexnum;    //评论等级（一级评论、二级评论）
+            uint64_t isbest;      //是否为最优评论
+
+            uint64_t primary_key() const { return id; }     //主键索引
+            uint64_t get_parid() const { return parid; }    //父主键索引
+            uint64_t get_best() const { return isbest; }    //有效评论索引
+
+            EOSLIB_SERIALIZE(comment, (id)(parid)(author)(comcontent)(timestamp)(indexnum)(isbest))
+        };
+        typedef multi_index<N(comments),comment,
+            indexed_by<N(byparid),const_mem_fun<comment,uint64_t,&comment::get_parid>>,
+            indexed_by<N(bybest),const_mem_fun<comment,uint64_t,&comment::get_best>>
+            > comments;
         // scope为_self
         // @abi table senderids i64
         struct senderid{
@@ -192,15 +235,15 @@ class wafyartvotes : public eosio::contract {
         typedef multi_index<N(allticks),alltick> allticks;
 
         // @abi action
-        void staketit(account_name byname,account_name accname,uint64_t amount);
+        void staketit  (account_name byname,account_name accname,uint64_t amount);
         // @abi action
         void unstaketit(account_name byname,uint64_t amount);
         // @abi action
-        void setstats(account_name byname,account_name accname,uint64_t id);
+        void setstats  (account_name byname,account_name accname,uint64_t id);
         // @abi action
         void delunstake(account_name byname,uint64_t id);
         // @abi action
-        void voteart(account_name byname,uint64_t votenum,account_name catename,uint64_t artid);
+        void voteart   (account_name byname,uint64_t votenum,account_name catename,uint64_t artid);
         // @abi action
         void redeemvote(account_name byname,account_name accname,account_name catename,uint64_t amount,bool type,uint64_t index);
         // @abi action
@@ -208,8 +251,25 @@ class wafyartvotes : public eosio::contract {
         // @abi action
         void delauditor(account_name byname,account_name catename);
         // @abi action
-        void voteaud(account_name byname,uint64_t votenum,account_name catename,account_name auditor);
-
+        void voteaud   (account_name byname,uint64_t votenum,account_name catename,account_name auditor);
+        // @abi action
+        void createart (account_name byname,string title,string abstract,ipfshash_t arthash,account_name catename,uint64_t payticket);
+        // @abi action
+        void modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t newarthash);
+        // @abi action
+        void deleteart (account_name byname,uint64_t id,account_name catename); 
+        // @abi action
+        void createcate(account_name byname,account_name catename,string memo,uint64_t paylimit,uint64_t auditnum,uint64_t comratio ,uint64_t voteratio, uint64_t audiratio, uint64_t devratio);
+        // @abi action
+        void createscr (account_name byname,account_name catename);
+        // @abi action
+        void createcom (account_name byname,string comcontent,account_name catename,uint64_t parid,uint16_t indexnum);
+        // @abi action
+        void modifycom (account_name byname,uint64_t id,account_name catename,string newcontent);
+        // @abi action
+        void deletecom (account_name byname,uint64_t id,account_name catename,uint16_t indexnum);
+        // @abi action
+        void setbestcom(account_name byname,uint64_t artid,uint64_t comid,account_name catename);
 
     private:
         uint128_t getsenderid(account_name cate);
@@ -229,14 +289,14 @@ class wafyartvotes : public eosio::contract {
             else
                 return false;
         }
-        // bool findcomid(uint64_t id,account_name catename){
-        //     comments commul(_self,catename);
-        //     auto comit=commul.find(id);
-        //     if(comit!=commul.end())
-        //         return true;
-        //     else
-        //         return false;
-        // }
+        bool findcomid(uint64_t id,account_name catename){
+            comments commul(_self,catename);
+            auto comit=commul.find(id);
+            if(comit!=commul.end())
+                return true;
+            else
+                return false;
+        }
         bool findaudit(account_name auditor,account_name catename){
             auditorlists audimul(_self,catename);
             auto audiit=audimul.find(auditor);
@@ -244,6 +304,56 @@ class wafyartvotes : public eosio::contract {
                 return true;
             else
                 return false;
+        }
+        bool getartstat(uint64_t id,account_name catename){
+            articles artmul(_self,catename);
+            auto artit=artmul.find(id);
+            if(artit!=artmul.end()){
+                if(artit->isend == 1)
+                    return true;
+                else
+                    return false;
+            }
+            else
+                return false;
+        }
+        uint64_t getaccblance(account_name autor){
+            acctickets accticmul(_self,_self);
+            auto accticit=accticmul.find(autor);
+            if(accticit!=accticmul.end())
+                return accticit->unvotetick;
+            else
+                return 0;
+        }
+        bool checkaudit(account_name catename){
+            auditorlists auditmul(_self,catename);
+            cates catemul(_self,_self);
+            uint64_t num =0;
+            for( auto auditit = auditmul.begin();auditit != auditmul.end(); ++auditit){
+                if(num>=(catemul.find(catename)->auditornum))
+                    return true;
+                num++;
+            }
+            return false;
+        }
+        bool getauditor(account_name autor,account_name catename){
+            auditorlists auditmul(_self,catename);
+            auto auditidx=auditmul.get_index<N(byamount)>();
+            if(checkaudit(catename)==false)
+                return false;
+            else{
+                // 遍历迭代器 前X个元素，X取决于该分类下的审核者数目
+                cates catemul(_self,_self);
+                uint64_t num =0;
+                for(auto auditit = auditidx.begin();auditit!=auditidx.end();++auditit){
+                    if(auditit->auditor==autor)
+                        return true;
+                    if(num>=(catemul.find(catename)->auditornum))
+                        return false;
+                    num++;
+                }
+                return false;
+            }
         }
 };
 

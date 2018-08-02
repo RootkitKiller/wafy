@@ -229,9 +229,10 @@ void wafyartvotes::voteart(account_name byname,uint64_t votenum,account_name cat
     eosio_assert(accticit!=accticmul.end(),"错误：该账户尚未抵押过Token");
     eosio_assert(accticit->unvotetick>votenum,"错误：投票数量超过余额");
     eosio_assert(votenum>10000,"错误：投票数量最少为1MZP");
-    // 验证分类、文章id是否存在
+    // 验证分类、文章id是否存在、文章是否已经过了投票期
     eosio_assert(findcate(catename)==true,"错误：该分类未定义");
     eosio_assert(findartid(artid,catename)==true,"错误：文章id不存在");
+    eosio_assert(getartstat(artid,catename)==true,"错误：文章已经关闭投票");
 
     // 更新账户投票分布表
     accvinfos accvinmul(_self,byname);
@@ -352,7 +353,7 @@ void wafyartvotes::voteaud(account_name byname,uint64_t votenum,account_name cat
             obj.votetick=obj.votetick+votenum;
         });
     }
-    // 更新审核员表 
+    //更新审核员表 
     auditorlists audimul(_self,catename);
     auto audiit=audimul.find(auditor);
     audimul.modify(audiit,_self,[&](auto &obj){
@@ -381,4 +382,272 @@ void wafyartvotes::voteaud(account_name byname,uint64_t votenum,account_name cat
     ttrans.delay_sec =VOTETIME;
     ttrans.send(voteaudiid,_self);
 }
-EOSIO_ABI( wafyartvotes, (staketit)(unstaketit)(setstats)(delunstake)(voteart)(redeemvote)(regauditor)(delauditor)(voteaud))
+// 创建文章
+void wafyartvotes::createart (account_name byname,string title,string abstract,ipfshash_t arthash,account_name catename,uint64_t payticket){
+    // 校验参数
+    require_auth(byname);
+    eosio_assert(getaccblance(byname)>payticket,"错误：该账户没有足够的MZP发布信息");
+    eosio_assert(title.size()<40,"错误：标题不超过40字节");
+    eosio_assert(abstract.size()<400,"错误：摘要不超过400字节");
+    eosio_assert(arthash.length()==46,"错误：文章hash长度为46字节");
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    cates catemul(_self,_self);
+    auto cateit=catemul.find(catename);
+    eosio_assert(payticket>cateit->paylimit,"错误：支付的MZP，不能小于账户的限制");
+
+    // 更新文章表
+    articles artmul(_self,catename);
+    artmul.emplace(_self,[&](auto &obj){
+        obj.id=artmul.available_primary_key();
+        obj.votenum=0;
+        obj.addtick=0;
+        obj.paytick=payticket*(cateit->comratio);
+        obj.title=title;
+        obj.abstract=abstract;
+        obj.author=byname;
+        obj.arthash=arthash;
+        obj.timestamp=now();
+        obj.modifynum=0;
+        obj.isend=0;
+    });
+    // 更新类别表
+    catemul.modify(cateit,_self,[&](auto &obj){
+        obj.reword=obj.reword+payticket*(cateit->voteratio);
+        obj.addcatenum();
+    });
+    // 更新项目表
+    allticks allticmul(_self,_self);
+    auto allticit=allticmul.find(_self);
+    eosio_assert(allticit!=allticmul.end(),"错误：未发现项目资产表信息");
+    allticmul.modify(allticit,_self,[&](auto &obj){
+        obj.devfunds  = obj.devfunds  + payticket*(cateit->devratio);
+    });
+    // 更新账户资产表
+    acctickets accticmul(_self,_self);
+    auto accticit=accticmul.find(byname);
+    accticmul.modify(accticit,_self,[&](auto &obj){
+        obj.unvotetick=obj.unvotetick-payticket;
+    });
+    // 发放奖励给审核者
+    auditorlists auditmul(_self,catename);
+    uint64_t num =0;
+    for( auto auditit = auditmul.begin();auditit != auditmul.end(); ++auditit){
+        if(num>=(catemul.find(catename)->auditornum))
+            break;
+        num++;
+    }
+    uint64_t tempnum=0;
+    uint64_t singlere=payticket*(cateit->devratio)/num;
+    for( auto auditit = auditmul.begin();auditit != auditmul.end(); ++auditit){
+        if(tempnum>=(catemul.find(catename)->auditornum))
+            break;
+        // 更新账户资产表
+        auto accticit=accticmul.find(auditit->auditor);
+        accticmul.modify(accticit,_self,[&](auto &obj){
+            obj.unvotetick=obj.unvotetick+singlere;
+        });
+        tempnum++;
+    }
+}
+// 修改文章
+void wafyartvotes::modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t newarthash){
+    require_auth(byname);
+
+    eosio_assert(title.size()<40,"错误：标题不超过40字节");
+    eosio_assert(abstract.size()<400,"错误：摘要不超过400字节");
+
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    eosio_assert(newarthash.length()==46,"错误：文章hash长度为46字节");
+
+    articles artmul(_self,catename);
+    auto artit=artmul.find(id);
+
+    eosio_assert(artit!=artmul.end(),"错误：文章id不存在");
+    eosio_assert(artit->author==byname,"错误：修改者并非作者");
+    eosio_assert(artit->modifynum<10,"错误：文章修改不能超过10次");
+
+    artmul.modify(artit,_self,[&](auto &obj){
+        obj.title=title;
+        obj.abstract=abstract;
+        obj.arthash=newarthash;
+    });
+}
+// 删除文章
+void wafyartvotes::deleteart (account_name byname,uint64_t id,account_name catename){
+    require_auth(byname);
+
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    articles artmul(_self,catename);
+    auto artit=artmul.find(id);
+
+    eosio_assert(artit!=artmul.end(),"错误：文章id不存在");
+    eosio_assert(artit->author==byname||getauditor(byname,catename)==true,"错误：删除者并非作者");
+    
+    artmul.erase(artit);
+
+    cates catemul(_self,_self);
+    auto cateit=catemul.find(catename);
+
+    eosio_assert(cateit!=catemul.end(),"错误：未定义该分类");
+    catemul.modify(cateit,_self,[&](auto &obj){
+        obj.subcatenum();
+    });
+}
+// 创建分类
+void wafyartvotes::createcate(account_name byname,account_name catename,string memo,\
+uint64_t paylimit, uint64_t auditnum,uint64_t comratio ,\
+uint64_t voteratio, uint64_t audiratio, uint64_t devratio ){
+    require_auth(byname);
+
+    eosio_assert(getaccblance(byname)>5000000,"错误：该账户没有足够的MZP创建分类，创建分类需要消耗500MZP");
+    eosio_assert(paylimit>10000,"错误：分类下的文章，最少需要支付1MZP");
+    eosio_assert(comratio+voteratio+audiratio+devratio==100,"错误：分成比例相加应为100");
+    eosio_assert(comratio>1 && voteratio>1 && audiratio>1 && devratio>1,"错误：分成比例不能存在小于1的方式");
+    eosio_assert(auditnum>1 && auditnum <100,"错误：每个分类的审核员不能小于1位，不能超过100位");
+
+
+    eosio_assert(memo.size()<400,"错误：分类简介需要小于400字节");
+    eosio_assert(findcate(catename)==false,"错误：该分类已经定义过");
+
+    cates catemul(_self,_self);
+    catemul.emplace(_self,[&](auto& obj){
+        obj.catename=catename;
+        obj.reword=5000000;
+        obj.votetick=0;
+        obj.paylimit=paylimit;
+        obj.comratio=comratio/100;
+        obj.voteratio=voteratio/100;
+        obj.audiratio=audiratio/100;
+        obj.devratio=devratio/100;
+        obj.auditornum=auditnum;
+        obj.memo=memo;
+        obj.createname=byname;
+        obj.articlenum=0;
+    });
+    // 更新创建者账户余额
+    acctickets accticmul(_self,_self);
+    auto accticit=accticmul.find(byname);
+    accticmul.modify(accticit,_self,[&](auto &obj){
+        obj.unvotetick=obj.unvotetick-5000000;
+    });
+}
+// 订阅分类
+void wafyartvotes::createscr (account_name byname,account_name catename){
+    require_auth(byname);
+
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+
+    subscribes submul(_self,byname);
+    auto subidx=submul.get_index<N(bycate)>();
+    auto subit=subidx.find(catename);
+
+    eosio_assert(subit==subidx.end(),"错误：该分类已经订阅过");
+    submul.emplace(_self,[&](auto& obj){
+        obj.id=submul.available_primary_key();
+        obj.catename=catename;
+    });
+}
+// 创建评论
+void wafyartvotes::createcom (account_name byname,string comcontent,account_name catename,uint64_t parid,uint16_t indexnum){
+    require_auth(byname);
+
+    eosio_assert(comcontent.size()<400,"错误：评论长度不能超过400字节");
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    eosio_assert(findartid(parid,catename)==true,"错误：文章id不存在");
+    eosio_assert(indexnum==1||indexnum==2,"错误：评论等级只能为1或2");
+
+    comments commul(_self,catename);
+    commul.emplace(_self,[&](auto &obj){
+        obj.id=commul.available_primary_key();
+        obj.parid=parid;
+        obj.author=byname;
+        obj.comcontent=comcontent;
+        obj.timestamp=now();
+        obj.indexnum=indexnum;
+        obj.isbest=0;
+    });
+}
+// 修改评论
+void wafyartvotes::modifycom (account_name byname,uint64_t id,account_name catename,string newcontent){
+    require_auth(byname);
+
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    eosio_assert(newcontent.size()<400,"错误：评论长度不超过400字节");
+    eosio_assert(findcomid(id,catename)==true,"错误：评论id不存在");
+
+    comments commul(_self,catename);
+    auto comit=commul.find(id);
+    eosio_assert(comit!=commul.end(),"错误：评论id不存在");
+    eosio_assert(comit->author==byname,"错误：评论修改者不是评论作者");
+
+    commul.modify(comit,_self,[&](auto& obj){
+        obj.comcontent=newcontent;
+    });
+}
+// 删除评论
+void wafyartvotes::deletecom (account_name byname,uint64_t id,account_name catename,uint16_t indexnum){
+    require_auth(byname);
+
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    eosio_assert(findcomid(id,catename)==true,"错误：评论id不存在");
+    eosio_assert(indexnum==1||indexnum==2,"错误：评论等级，参数为1或者2");
+
+    comments commul(_self,catename);
+    auto comit=commul.find(id);
+    eosio_assert(comit!=commul.end(),"错误：评论id不存在");
+    eosio_assert(comit->author==byname||getauditor(byname,catename)==true,"错误：该账户没有权限删除评论");
+
+    uint64_t pid=comit->parid;
+    commul.erase(comit);
+
+    if(indexnum==1){
+        comments commul(_self,catename);
+        auto compidx=commul.get_index<N(byparid)>();
+        auto compit=compidx.find(pid);
+        for(;compit!=compidx.end();compit++){
+            if(compit->parid==pid&&compit->indexnum==2){
+                compidx.erase(compit);
+                if(compit==compidx.end())
+                    break;
+            }
+        }
+    }
+}
+void wafyartvotes::setbestcom(account_name byname,uint64_t artid,uint64_t comid,account_name catename){
+    require_auth(byname);
+
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    eosio_assert(findartid(artid,catename)==true,"错误：文章id不存在");
+    eosio_assert(findcomid(comid,catename)==true,"错误：评论id不存在");
+
+    articles artmul(_self,catename);
+    auto artit=artmul.find(artid);
+    eosio_assert(artit->author==byname,"错误：非文章作者无权设置有效评论");
+
+    comments commul(_self,catename);
+    auto comit=commul.find(comid);
+    eosio_assert(comit->indexnum==1,"错误：有效评论只能为一级评论");
+    eosio_assert(comit->parid==artid,"错误：该评论不属于此文章");
+
+    commul.modify(comit,_self,[&](auto &obj){
+        obj.isbest=1;
+    });
+    artmul.modify(artit,_self,[&](auto &obj){
+        obj.isend=1;
+    });
+    // 最佳评论者赚取收益
+    uint64_t comreword=artit->addtick+artit->paytick;
+    artmul.modify(artit,_self,[&](auto &obj){
+        obj.addtick=0;
+        obj.paytick=0;
+    });
+    account_name comautor=comit->author;
+    acctickets accticmul(_self,_self);
+    auto accticit=accticmul.find(comautor);
+    accticmul.modify(accticit,_self,[&](auto &obj){
+        obj.unvotetick=obj.unvotetick+comreword;
+    });
+
+}
+EOSIO_ABI( wafyartvotes, (staketit)(unstaketit)(setstats)(delunstake)(voteart)(redeemvote)(regauditor)(delauditor)\
+(voteaud)(createart)(modifyart)(deleteart)(createcate)(createscr)(createcom)(modifycom)(deletecom)(setbestcom))
