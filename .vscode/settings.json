@@ -42,6 +42,7 @@
         "dynarray": "cpp",
         "initializer_list": "cpp",
         "iterator": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "ratio": "cpp"
     }
 }

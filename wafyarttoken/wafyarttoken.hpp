@@ -34,6 +34,8 @@ public:
 
   // @abi action
   void staketoken(account_name byname,asset quantity);
+  // @abi action
+  void addtoken(account_name byname,uint64_t amount);
 
   inline asset get_supply(symbol_name sym) const;
 

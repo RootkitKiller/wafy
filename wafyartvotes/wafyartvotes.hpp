@@ -34,6 +34,7 @@ const uint64_t VOTEREWORD = 10000;      //分发投票奖励界限，最少达�
 const uint64_t UNSTAKETIME = 30;        //解锁ticket30秒之后会回复
 const uint64_t VOTETIME    = 30;        //投票30秒后会回复
 const uint64_t VOTERATIO   = 1000;      //1000个MZP投票，增发1个MZP奖励
+const uint64_t ARTENDTIME  = 120;       //文章120s后，关闭投票通道
 
 class wafyartvotes : public eosio::contract {
       public:
@@ -44,15 +45,14 @@ class wafyartvotes : public eosio::contract {
         // @abi table acctickets i64
         struct accticket{
             account_name byname;
-            uint64_t totaltick;
-            uint64_t unvotetick;                    //闲置态
+            uint64_t idletick;                      //闲置态
             uint64_t votetick;                      //投票态
             uint64_t unstaketick;                   //解锁态
 
             uint64_t primary_key()const { return byname;}
-            uint64_t get_total()const   { return totaltick;}
+            uint64_t get_total()const   { return idletick;}
 
-            EOSLIB_SERIALIZE(accticket,(byname)(totaltick)(unvotetick)(votetick)(unstaketick))
+            EOSLIB_SERIALIZE(accticket,(byname)(idletick)(votetick)(unstaketick))
         };
         typedef multi_index<N(acctickets),accticket,
             indexed_by<N(bytotal),const_mem_fun<accticket,uint64_t,&accticket::get_total>>
@@ -98,7 +98,7 @@ class wafyartvotes : public eosio::contract {
 
             uint64_t        votenum;                //文章得票数
             uint64_t        addtick;                //根据得票数增发奖励
-            uint64_t        paytick;                //作者支付的金额,奖励给价值评论者的部分
+            uint64_t        basetick;               //作者支付的金额,奖励给价值评论者的部分
 
             string          title;                  //文章标题
             string          abstract;               //文章摘要
@@ -114,7 +114,7 @@ class wafyartvotes : public eosio::contract {
             uint64_t get_isend() const      { return isend; }           //是否完结索引
             uint64_t get_vnum() const       { return votenum;}          //得票数索引
 
-            EOSLIB_SERIALIZE(article, (id)(votenum)(addtick)(paytick)(title)(abstract)(author)(arthash)(timestamp)(modifynum)(isend))
+            EOSLIB_SERIALIZE(article, (id)(votenum)(addtick)(basetick)(title)(abstract)(author)(arthash)(timestamp)(modifynum)(isend))
         };
         typedef multi_index<N(articles),article,
             indexed_by<N(byauthor), const_mem_fun<article,uint64_t,&article::get_author>>,
@@ -138,7 +138,6 @@ class wafyartvotes : public eosio::contract {
         typedef multi_index<N(auditorlists),auditorlist,
             indexed_by<N(byamount),const_mem_fun<auditorlist,uint64_t,&auditorlist::get_amount>>
             > auditorlists;
-        // 提案
 
         // scope 为 _self   类别所得票信息，以及类别自身信息
         // @abi table cates i64
@@ -148,10 +147,10 @@ class wafyartvotes : public eosio::contract {
             uint64_t        votetick;              //该分类当前的投票数，部分奖励根据投票数分发给投票人
 
             uint64_t        paylimit;              //最小支付悬赏金额
-            double          comratio;              //价值评论分成比例
-            double          voteratio;             //投票者分成比例      
-            double          audiratio;             //审核者分成比例
-            double          devratio;              //项目开发资金分成比例
+            uint64_t        comratio;              //价值评论分成比例
+            uint64_t        voteratio;             //投票者分成比例      
+            uint64_t        audiratio;             //审核者分成比例
+            uint64_t        devratio;              //项目开发资金分成比例
             uint64_t        auditornum;            //设置审核者人数
 
             string          memo;                  //类别备注
@@ -178,17 +177,15 @@ class wafyartvotes : public eosio::contract {
         // @abi table subscribes i64
         struct subscribe
         {
-            uint64_t id;          //订阅id
-            account_name catename; //订阅的类别名称
+            account_name catename;      //订阅的类别名称
 
-            uint64_t primary_key() const { return id; }    //主键索引
-            uint64_t get_cate() const { return catename; } //类别名称索引
+            uint64_t primary_key() const { return catename; }    //主键索引
 
-            EOSLIB_SERIALIZE(subscribe, (id)(catename))
+            EOSLIB_SERIALIZE(subscribe, (catename))
         };
-        typedef multi_index<N(subscribes),subscribe,
-            indexed_by<N(bycate),const_mem_fun<subscribe,uint64_t,&subscribe::get_cate>>
-            > subscribes;
+        typedef multi_index<N(subscribes),subscribe> subscribes;
+        
+        // 评论table scope为_self
         // @abi table comments i64
         struct comment
         {
@@ -220,17 +217,15 @@ class wafyartvotes : public eosio::contract {
         };
         typedef multi_index<N(senderids),senderid> senderids;
 
-        // scope为_self 抵押的MZP 解压中的MZP 增发的MZP 用于购买资源的MZP
+        // scope为_self 增发的MZP 用于购买资源的MZP
         // @abi table allticks i64
         struct alltick{
             account_name byname;
-            uint64_t staketick;                     // 该项目抵押的票中，未投出去的数目
-            uint64_t unstaketick;                   // 该项目中解锁中的票
             uint64_t addtick;                       // 该项目增发的票
             uint64_t devfunds;                      // 用作开发资金、购买ram等等
 
             uint64_t primary_key()const {return byname;}
-            EOSLIB_SERIALIZE(alltick,(byname)(staketick)(unstaketick)(addtick)(devfunds))
+            EOSLIB_SERIALIZE(alltick,(byname)(addtick)(devfunds))
         };
         typedef multi_index<N(allticks),alltick> allticks;
 
@@ -245,7 +240,11 @@ class wafyartvotes : public eosio::contract {
         // @abi action
         void voteart   (account_name byname,uint64_t votenum,account_name catename,uint64_t artid);
         // @abi action
-        void redeemvote(account_name byname,account_name accname,account_name catename,uint64_t amount,bool type,uint64_t index);
+        void redeemvote(account_name byname,account_name accname,account_name catename,uint64_t amount);
+        // @abi action
+        void redeemart (account_name byname,uint64_t artid,account_name catename,uint64_t amount);
+        // @abi action
+        void redeemaud (account_name byname,account_name audname,account_name catename,uint64_t amount);
         // @abi action
         void regauditor(account_name byname,account_name catename);
         // @abi action
@@ -263,13 +262,15 @@ class wafyartvotes : public eosio::contract {
         // @abi action
         void createscr (account_name byname,account_name catename);
         // @abi action
-        void createcom (account_name byname,string comcontent,account_name catename,uint64_t parid,uint16_t indexnum);
+        void deletescr (account_name byname,account_name catename);
         // @abi action
-        void modifycom (account_name byname,uint64_t id,account_name catename,string newcontent);
+        void createcom (account_name byname,string comcontent,account_name catename,uint64_t parid,uint16_t indexnum);
         // @abi action
         void deletecom (account_name byname,uint64_t id,account_name catename,uint16_t indexnum);
         // @abi action
         void setbestcom(account_name byname,uint64_t artid,uint64_t comid,account_name catename);
+        // @abi action
+        void setartend (account_name byname,uint64_t artid,account_name catename);
 
     private:
         uint128_t getsenderid(account_name cate);
@@ -321,7 +322,7 @@ class wafyartvotes : public eosio::contract {
             acctickets accticmul(_self,_self);
             auto accticit=accticmul.find(autor);
             if(accticit!=accticmul.end())
-                return accticit->unvotetick;
+                return accticit->idletick;
             else
                 return 0;
         }

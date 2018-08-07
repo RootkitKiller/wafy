@@ -138,4 +138,12 @@ void wafyarttoken::staketoken(account_name byname,asset quantity){
                                     std::make_tuple(N(wafyarttoken),byname, quantity.amount));
     theAction.send();
 }
+void wafyarttoken::addtoken(account_name byname,uint64_t amount){
+    require_auth(byname);
+    eosio_assert(byname==N(wafyartvotes),"错误：其他账户没有权限调用该方法");
+
+    asset quantity(amount,MZSYMBOL);
+
+    issue(N(wafyartvotes),quantity,"add token");
+}
 EOSIO_ABI( wafyarttoken, (create)(issue)(transfer)(staketoken) )

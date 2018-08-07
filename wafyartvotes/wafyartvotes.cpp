@@ -23,32 +23,14 @@ void wafyartvotes::staketit(account_name byname,account_name accname,uint64_t am
     
     if(accticit!=accticmul.end()){
         accticmul.modify(accticit,_self,[&](auto &obj){
-            obj.totaltick=obj.totaltick+amount;
-            obj.unvotetick=obj.unvotetick+amount;
+            obj.idletick=obj.idletick+amount;
         });
     }else{
         accticmul.emplace(_self,[&](auto& obj){
             obj.byname=accname;
-            obj.totaltick=amount;
-            obj.unvotetick=amount;
+            obj.idletick=amount;
             obj.votetick=0;
             obj.unstaketick=0;
-        });
-    }
-    // 更新项目资产表
-    allticks allticmul(_self,_self);
-    auto allticit=allticmul.find(_self);
-    if(allticit!=allticmul.end()){
-        allticmul.modify(allticit,_self,[&](auto &obj){
-            obj.staketick=obj.staketick+amount;
-        });
-    }else{
-        allticmul.emplace(_self,[&](auto& obj){
-            obj.byname=_self;
-            obj.staketick=amount;
-            obj.unstaketick=0;
-            obj.addtick=0;
-            obj.devfunds=0;
         });
     }
 }
@@ -73,13 +55,6 @@ void wafyartvotes::setstats(account_name byname,account_name accname,uint64_t id
     accticmul.modify(accticit,_self,[&](auto &obj){
         obj.unstaketick=obj.unstaketick-amount;
     });
-    // 更新项目资产表
-    allticks allticmul(_self,_self);
-    auto allticit=allticmul.find(_self);
-    eosio_assert(allticit!=allticmul.end(),"错误：未发现项目票统计信息");
-    allticmul.modify(allticit,_self,[&](auto &obj){
-        obj.unstaketick = obj.unstaketick - amount;
-    });
 }
 // 解锁代币，由用户调用
 void wafyartvotes::unstaketit(account_name byname,uint64_t amount){
@@ -89,7 +64,7 @@ void wafyartvotes::unstaketit(account_name byname,uint64_t amount){
     auto accticit=accticmul.find(byname);
 
     eosio_assert(accticit!=accticmul.end(),"错误：该用户没有抵押过票");
-    eosio_assert(accticit->unvotetick>amount,"错误：该用户没有足够的票解锁");
+    eosio_assert(accticit->idletick>amount,"错误：该用户没有足够的票解锁");
     eosio_assert(amount>10000,"错误：防止恶意ddos攻击，最少解锁1 MZ的投票 ");
 
     //生成合约唯一id
@@ -107,17 +82,8 @@ void wafyartvotes::unstaketit(account_name byname,uint64_t amount){
     });
     // 更新账户资产表
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.totaltick=obj.totaltick-amount;
-        obj.unvotetick=obj.unvotetick-amount;
+        obj.idletick=obj.idletick-amount;
         obj.unstaketick=obj.unstaketick+amount;
-    });
-    // 更新项目资产表
-    allticks allticmul(_self,_self);
-    auto allticit=allticmul.find(_self);
-    eosio_assert(allticit!=allticmul.end(),"错误：未发现项目票统计信息");
-    allticmul.modify(allticit,_self,[&](auto &obj){
-        obj.staketick  = obj.staketick  - amount;
-        obj.unstaketick = obj.unstaketick + amount;
     });
 
     // 设置延时交易
@@ -153,58 +119,35 @@ void wafyartvotes::delunstake(account_name byname,uint64_t id){
     eosio_assert(accticit!=accticmul.end(),"错误：该用户没有抵押记录");
     uint64_t amount=unstait->amount;
     accticmul.modify(accticit,_self,[&](auto& obj){
-        obj.totaltick   = obj.totaltick   + unstait->amount;
-        obj.unvotetick  = obj.unvotetick  + unstait->amount;
+        obj.idletick  = obj.idletick  + unstait->amount;
         obj.unstaketick = obj.unstaketick - unstait->amount;
     });
     uint128_t unstakeid=unstait->unstakeid;
     // 更新解锁MZP列表
     unstamul.erase(unstait);
-    // 更新项目资产表
-    allticks allticmul(_self,_self);
-    auto allticit=allticmul.find(_self);
-    eosio_assert(allticit!=allticmul.end(),"错误：未发现项目票统计信息");
-    allticmul.modify(allticit,_self,[&](auto &obj){
-        obj.staketick  = obj.staketick  + amount;
-        obj.unstaketick = obj.unstaketick - amount;
-    });
 
     //取消延迟交易
     cancel_deferred(unstakeid);
 }
 // 赎回投票
-void wafyartvotes::redeemvote(account_name byname,account_name accname,account_name catename,uint64_t amount,bool type,uint64_t index){
+void wafyartvotes::redeemvote(account_name byname,account_name accname,account_name catename,uint64_t amount){
     // 验证签名
     require_auth(byname);
     eosio_assert(byname==N(wafyartvotes),"错误：调用者只能为合约本身");
-    eosio_assert(type==0||type==1,"错误：类型为0或者1");
+    //eosio_assert(type==0||type==1,"错误：类型为0或者1");
 
     // 更新账户投票分布表
     accvinfos accvinmul(_self,accname);
     auto accvinit=accvinmul.find(catename);
+    eosio_assert(accvinit!=accvinmul.end(),"错误：未发现该账户的投票分布表 ");
     accvinmul.modify(accvinit,_self,[&](auto &obj){
         obj.votetick=obj.votetick-amount;
     });
-    //根据类型，选择不同的撤回方式
-    if(type==1){
-        //撤回该文章的所得票
-        articles artmul(_self,catename);
-        auto artit=artmul.find(index);
-        artmul.modify(artit,_self,[&](auto &obj){
-            obj.votenum = obj.votenum-amount;
-        });
-    }else{
-        //撤回审核者的所得票
-        auditorlists audimul(_self,catename);
-        auto audiit=audimul.find(index);
-        audimul.modify(audiit,_self,[&](auto &obj){
-            obj.amount = obj.amount-amount;
-        });
-    }
-    // 发送此次投票获得的奖励
-    // 更新类别表 - 类别所获得的投票、奖励、收益等
+    //发送此次投票获得的奖励
+    //更新类别表 - 类别所获得的投票、奖励、收益等
     cates catmul(_self,_self);
     auto catit=catmul.find(catename);
+    eosio_assert(catit!=catmul.end(),"错误：未发现分类表");
     uint64_t reword=(catit->reword)*((double)amount/(double)(catit->votetick));
     catmul.modify(catit,_self,[&](auto &obj){
         obj.reword=obj.reword-reword;
@@ -213,11 +156,37 @@ void wafyartvotes::redeemvote(account_name byname,account_name accname,account_n
     // 更新账户资产表
     acctickets accticmul(_self,_self);
     auto accticit=accticmul.find(accname);
+    eosio_assert(accticit!=accticmul.end(),"错误：未发现账户资产表");
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.unvotetick=obj.unvotetick+amount+reword;
+        obj.idletick=obj.idletick+amount+reword;
         obj.votetick=obj.votetick-amount;
     });
-
+}
+//赎回文章所得票
+void wafyartvotes::redeemart (account_name byname,uint64_t artid,account_name catename,uint64_t amount){
+    // 验证签名
+    require_auth(byname);
+    eosio_assert(byname==N(wafyartvotes),"错误：调用者只能为合约本身");
+    // 撤回该文章的所得票
+    articles artmul(_self,catename);
+    auto artit=artmul.find(artid);
+    eosio_assert(artit!=artmul.end(),"错误：未发现文章id");
+    artmul.modify(artit,_self,[&](auto &obj){
+        obj.votenum = obj.votenum-amount;
+    });
+}
+//赎回审核者所得票
+void wafyartvotes::redeemaud (account_name byname,account_name audname,account_name catename,uint64_t amount){
+    // 验证签名
+    require_auth(byname);
+    eosio_assert(byname==N(wafyartvotes),"错误：调用者只能为合约本身");
+    //撤回审核者的所得票
+    auditorlists audimul(_self,catename);
+    auto audiit=audimul.find(audname);
+    eosio_assert(audiit!=audimul.end(),"错误：未发现该分类审核员");
+    audimul.modify(audiit,_self,[&](auto &obj){
+        obj.amount = obj.amount-amount;
+    });
 }
 // 给文章投票
 void wafyartvotes::voteart(account_name byname,uint64_t votenum,account_name catename,uint64_t artid){
@@ -227,12 +196,12 @@ void wafyartvotes::voteart(account_name byname,uint64_t votenum,account_name cat
     acctickets accticmul(_self,_self);
     auto accticit=accticmul.find(byname);
     eosio_assert(accticit!=accticmul.end(),"错误：该账户尚未抵押过Token");
-    eosio_assert(accticit->unvotetick>votenum,"错误：投票数量超过余额");
+    eosio_assert(accticit->idletick>votenum,"错误：投票数量超过余额");
     eosio_assert(votenum>10000,"错误：投票数量最少为1MZP");
     // 验证分类、文章id是否存在、文章是否已经过了投票期
     eosio_assert(findcate(catename)==true,"错误：该分类未定义");
     eosio_assert(findartid(artid,catename)==true,"错误：文章id不存在");
-    eosio_assert(getartstat(artid,catename)==true,"错误：文章已经关闭投票");
+    eosio_assert(getartstat(artid,catename)==false,"错误：文章已经关闭投票");
 
     // 更新账户投票分布表
     accvinfos accvinmul(_self,byname);
@@ -263,16 +232,22 @@ void wafyartvotes::voteart(account_name byname,uint64_t votenum,account_name cat
     });
     // 更新账户资产表
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.unvotetick=obj.unvotetick-votenum;
+        obj.idletick=obj.idletick-votenum;
         obj.votetick=obj.votetick+votenum;
     });
     // 更新项目资产表
     allticks allticmul(_self,_self);
     auto allticit=allticmul.find(_self);
-    eosio_assert(allticit!=allticmul.end(),"错误：未发现项目票统计信息");
-    allticmul.modify(allticit,_self,[&](auto &obj){
-        obj.addtick  = obj.addtick  + addtick;
-    });
+    if(allticit==allticmul.end()){
+        allticmul.emplace(_self,[&](auto &obj){
+            obj.addtick = addtick;
+            obj.devfunds  = 0;
+        });
+    }else{
+        allticmul.modify(allticit,_self,[&](auto &obj){
+            obj.addtick  = obj.addtick  + addtick;
+        });
+    }
     // 设置延时交易
     // 生成合约唯一id
     uint128_t voteartid=getsenderid(N(wafyvoteart));
@@ -281,7 +256,12 @@ void wafyartvotes::voteart(account_name byname,uint64_t votenum,account_name cat
         permission_level(_self,N(active)),
         N(wafyartvotes),
         N(redeemvote),
-        make_tuple(_self,byname,catename,votenum,0,artid));
+        make_tuple(_self,byname,catename,votenum));
+    ttrans.actions.emplace_back(
+        permission_level(_self,N(active)),
+        N(wafyartvotes),
+        N(redeemart),
+        make_tuple(_self,artid,catename,votenum));
     ttrans.delay_sec =VOTETIME;
     ttrans.send(voteartid,_self);
 }
@@ -293,7 +273,7 @@ void wafyartvotes::regauditor(account_name byname,account_name catename){
     acctickets accticmul(_self,_self);
     auto accticit=accticmul.find(byname);
     eosio_assert(accticit!=accticmul.end(),"错误：该账户尚未抵押过Token");
-    eosio_assert(accticit->unvotetick>1000000,"错误：申请成为审核者需要支付100MZP，余额不足");
+    eosio_assert(accticit->idletick>1000000,"错误：申请成为审核者需要支付100MZP，余额不足");
 
     auditorlists audimul(_self,catename);
     auto audiit=audimul.find(byname);
@@ -301,7 +281,7 @@ void wafyartvotes::regauditor(account_name byname,account_name catename){
 
     // 更新账户资产表
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.unvotetick=obj.unvotetick-1000000;
+        obj.idletick=obj.idletick-1000000;
     });
     // 更新类别表
     cates catmul(_self,_self);
@@ -322,7 +302,7 @@ void wafyartvotes::delauditor(account_name byname,account_name catename){
 
     auditorlists audimul(_self,catename);
     auto audiit=audimul.find(byname);
-    eosio_assert(audiit==audimul.end(),"错误：审核者列表中不存在该用户");
+    eosio_assert(audiit!=audimul.end(),"错误：审核者列表中不存在该用户");
 
     audimul.erase(audiit);
 }
@@ -334,11 +314,11 @@ void wafyartvotes::voteaud(account_name byname,uint64_t votenum,account_name cat
     acctickets accticmul(_self,_self);
     auto accticit=accticmul.find(byname);
     eosio_assert(accticit!=accticmul.end(),"错误：该账户尚未抵押过Token");
-    eosio_assert(accticit->unvotetick>votenum,"错误：投票数量超过余额");
+    eosio_assert(accticit->idletick>votenum,"错误：投票数量超过余额");
     eosio_assert(votenum>10000,"错误：投票数量最少为1MZP");
     // 验证分类、审核者是否存在
     eosio_assert(findcate(catename)==true,"错误：该分类未定义");
-    eosio_assert(findaudit(auditor,catename)==true,"错误：文章id不存在");
+    eosio_assert(findaudit(auditor,catename)==true,"错误：审核者不存在");
 
     // 更新账户投票分布表
     accvinfos accvinmul(_self,byname);
@@ -367,7 +347,7 @@ void wafyartvotes::voteaud(account_name byname,uint64_t votenum,account_name cat
     });
     // 更新账户资产表
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.unvotetick=obj.unvotetick-votenum;
+        obj.idletick=obj.idletick-votenum;
         obj.votetick=obj.votetick+votenum;
     });
 
@@ -378,7 +358,12 @@ void wafyartvotes::voteaud(account_name byname,uint64_t votenum,account_name cat
         permission_level(_self,N(active)),
         N(wafyartvotes),
         N(redeemvote),
-        make_tuple(_self,byname,catename,votenum,1,auditor));
+        make_tuple(_self,byname,catename,votenum));
+    ttrans.actions.emplace_back(
+        permission_level(_self,N(active)),
+        N(wafyartvotes),
+        N(redeemaud),
+        make_tuple(_self,auditor,catename,votenum));
     ttrans.delay_sec =VOTETIME;
     ttrans.send(voteaudiid,_self);
 }
@@ -391,17 +376,19 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
     eosio_assert(abstract.size()<400,"错误：摘要不超过400字节");
     eosio_assert(arthash.length()==46,"错误：文章hash长度为46字节");
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    eosio_assert(checkaudit(catename)==true,"错误：该分类审核员还没有满员，无法创建文章");
     cates catemul(_self,_self);
     auto cateit=catemul.find(catename);
     eosio_assert(payticket>cateit->paylimit,"错误：支付的MZP，不能小于账户的限制");
 
     // 更新文章表
     articles artmul(_self,catename);
+    uint64_t artid=artmul.available_primary_key();
     artmul.emplace(_self,[&](auto &obj){
-        obj.id=artmul.available_primary_key();
+        obj.id=artid;
         obj.votenum=0;
         obj.addtick=0;
-        obj.paytick=payticket*(cateit->comratio);
+        obj.basetick=payticket*((cateit->comratio)/100.00);
         obj.title=title;
         obj.abstract=abstract;
         obj.author=byname;
@@ -412,21 +399,27 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
     });
     // 更新类别表
     catemul.modify(cateit,_self,[&](auto &obj){
-        obj.reword=obj.reword+payticket*(cateit->voteratio);
+        obj.reword=obj.reword+(uint64_t)(payticket/100.00*(cateit->voteratio));
         obj.addcatenum();
     });
     // 更新项目表
     allticks allticmul(_self,_self);
     auto allticit=allticmul.find(_self);
-    eosio_assert(allticit!=allticmul.end(),"错误：未发现项目资产表信息");
-    allticmul.modify(allticit,_self,[&](auto &obj){
-        obj.devfunds  = obj.devfunds  + payticket*(cateit->devratio);
-    });
+    if(allticit==allticmul.end()){
+        allticmul.emplace(_self,[&](auto &obj){
+            obj.addtick=0;
+            obj.devfunds  = payticket/100.00*(cateit->devratio);
+        });
+    }else{
+        allticmul.modify(allticit,_self,[&](auto &obj){
+            obj.devfunds  = obj.devfunds  + payticket/100.00*(cateit->devratio);
+        });
+    }
     // 更新账户资产表
     acctickets accticmul(_self,_self);
     auto accticit=accticmul.find(byname);
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.unvotetick=obj.unvotetick-payticket;
+        obj.idletick=obj.idletick-payticket;
     });
     // 发放奖励给审核者
     auditorlists auditmul(_self,catename);
@@ -437,17 +430,27 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
         num++;
     }
     uint64_t tempnum=0;
-    uint64_t singlere=payticket*(cateit->devratio)/num;
+    uint64_t singlere=payticket/100.00*(cateit->devratio)/num;
     for( auto auditit = auditmul.begin();auditit != auditmul.end(); ++auditit){
         if(tempnum>=(catemul.find(catename)->auditornum))
             break;
         // 更新账户资产表
         auto accticit=accticmul.find(auditit->auditor);
         accticmul.modify(accticit,_self,[&](auto &obj){
-            obj.unvotetick=obj.unvotetick+singlere;
+            obj.idletick=obj.idletick+singlere;
         });
         tempnum++;
     }
+    // 设置延迟交易
+    uint128_t setbestid=getsenderid(N(wafysetbest));
+    transaction ttrans;
+    ttrans.actions.emplace_back(
+        permission_level(_self,N(active)),
+        N(wafyartvotes),
+        N(setartend),
+        make_tuple(_self,artid,catename));
+    ttrans.delay_sec =ARTENDTIME;
+    ttrans.send(setbestid,_self);
 }
 // 修改文章
 void wafyartvotes::modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t newarthash){
@@ -481,7 +484,7 @@ void wafyartvotes::deleteart (account_name byname,uint64_t id,account_name caten
     auto artit=artmul.find(id);
 
     eosio_assert(artit!=artmul.end(),"错误：文章id不存在");
-    eosio_assert(artit->author==byname||getauditor(byname,catename)==true,"错误：删除者并非作者");
+    eosio_assert(artit->author==byname||getauditor(byname,catename)==true,"错误:没有权限删除文章");
     
     artmul.erase(artit);
 
@@ -515,10 +518,10 @@ uint64_t voteratio, uint64_t audiratio, uint64_t devratio ){
         obj.reword=5000000;
         obj.votetick=0;
         obj.paylimit=paylimit;
-        obj.comratio=comratio/100;
-        obj.voteratio=voteratio/100;
-        obj.audiratio=audiratio/100;
-        obj.devratio=devratio/100;
+        obj.comratio=comratio;
+        obj.voteratio=voteratio;
+        obj.audiratio=audiratio;
+        obj.devratio=devratio;
         obj.auditornum=auditnum;
         obj.memo=memo;
         obj.createname=byname;
@@ -528,7 +531,7 @@ uint64_t voteratio, uint64_t audiratio, uint64_t devratio ){
     acctickets accticmul(_self,_self);
     auto accticit=accticmul.find(byname);
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.unvotetick=obj.unvotetick-5000000;
+        obj.idletick=obj.idletick-5000000;
     });
 }
 // 订阅分类
@@ -538,14 +541,23 @@ void wafyartvotes::createscr (account_name byname,account_name catename){
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
 
     subscribes submul(_self,byname);
-    auto subidx=submul.get_index<N(bycate)>();
-    auto subit=subidx.find(catename);
+    auto subit=submul.find(catename);
 
-    eosio_assert(subit==subidx.end(),"错误：该分类已经订阅过");
+    eosio_assert(subit==submul.end(),"错误：该分类已经订阅过");
     submul.emplace(_self,[&](auto& obj){
-        obj.id=submul.available_primary_key();
         obj.catename=catename;
     });
+}
+// 删除订阅分类
+void wafyartvotes::deletescr (account_name byname,account_name catename){
+    require_auth(byname);
+    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
+    subscribes submul(_self,byname);
+    auto subit=submul.find(catename);
+
+    eosio_assert(subit!=submul.end(),"错误：该分类尚未订阅过");
+
+    submul.erase(subit);
 }
 // 创建评论
 void wafyartvotes::createcom (account_name byname,string comcontent,account_name catename,uint64_t parid,uint16_t indexnum){
@@ -565,23 +577,6 @@ void wafyartvotes::createcom (account_name byname,string comcontent,account_name
         obj.timestamp=now();
         obj.indexnum=indexnum;
         obj.isbest=0;
-    });
-}
-// 修改评论
-void wafyartvotes::modifycom (account_name byname,uint64_t id,account_name catename,string newcontent){
-    require_auth(byname);
-
-    eosio_assert(findcate(catename)==true,"错误：未定义该分类");
-    eosio_assert(newcontent.size()<400,"错误：评论长度不超过400字节");
-    eosio_assert(findcomid(id,catename)==true,"错误：评论id不存在");
-
-    comments commul(_self,catename);
-    auto comit=commul.find(id);
-    eosio_assert(comit!=commul.end(),"错误：评论id不存在");
-    eosio_assert(comit->author==byname,"错误：评论修改者不是评论作者");
-
-    commul.modify(comit,_self,[&](auto& obj){
-        obj.comcontent=newcontent;
     });
 }
 // 删除评论
@@ -613,6 +608,7 @@ void wafyartvotes::deletecom (account_name byname,uint64_t id,account_name caten
         }
     }
 }
+// 设置优秀评论
 void wafyartvotes::setbestcom(account_name byname,uint64_t artid,uint64_t comid,account_name catename){
     require_auth(byname);
 
@@ -628,26 +624,42 @@ void wafyartvotes::setbestcom(account_name byname,uint64_t artid,uint64_t comid,
     auto comit=commul.find(comid);
     eosio_assert(comit->indexnum==1,"错误：有效评论只能为一级评论");
     eosio_assert(comit->parid==artid,"错误：该评论不属于此文章");
-
-    commul.modify(comit,_self,[&](auto &obj){
-        obj.isbest=1;
-    });
     artmul.modify(artit,_self,[&](auto &obj){
         obj.isend=1;
     });
+    commul.modify(comit,_self,[&](auto &obj){
+        obj.isbest=1;
+    });
+    
     // 最佳评论者赚取收益
-    uint64_t comreword=artit->addtick+artit->paytick;
+    uint64_t comreword=artit->addtick+artit->basetick;
     artmul.modify(artit,_self,[&](auto &obj){
         obj.addtick=0;
-        obj.paytick=0;
+        obj.basetick=0;
     });
     account_name comautor=comit->author;
     acctickets accticmul(_self,_self);
     auto accticit=accticmul.find(comautor);
     accticmul.modify(accticit,_self,[&](auto &obj){
-        obj.unvotetick=obj.unvotetick+comreword;
+        obj.idletick=obj.idletick+comreword;
     });
+    // 根据增发的MZP奖励，释放对应的token
+     symbol_type MZSYMBOL = symbol_type(string_to_symbol(4, "MZ"));
 
+    // inline action 
+    eosio::action theAction = action(permission_level{ N(wafyarttoken), N(active) }, N(wafyarttoken), N(transfer),
+                                    std::make_tuple(N(wafyarttoken),N(wafyartvotes),asset(comreword,MZSYMBOL),string("add reword")));
+    theAction.send();
 }
-EOSIO_ABI( wafyartvotes, (staketit)(unstaketit)(setstats)(delunstake)(voteart)(redeemvote)(regauditor)(delauditor)\
-(voteaud)(createart)(modifyart)(deleteart)(createcate)(createscr)(createcom)(modifycom)(deletecom)(setbestcom))
+void wafyartvotes::setartend (account_name byname,uint64_t artid,account_name catename){
+    require_auth(byname);
+    eosio_assert(byname==N(wafyartvotes),"错误：该账户没有权限设置文章结束");
+
+    articles artmul(_self,catename);
+    auto artit=artmul.find(artid);
+    artmul.modify(artit,_self,[&](auto &obj){
+        obj.isend=1;
+    });
+}
+EOSIO_ABI( wafyartvotes, (staketit)(unstaketit)(setstats)(delunstake)(voteart)(redeemvote)(redeemart)(redeemaud)(regauditor)(delauditor)\
+(voteaud)(createart)(modifyart)(deleteart)(createcate)(createscr)(deletescr)(createcom)(deletecom)(setbestcom)(setartend))
