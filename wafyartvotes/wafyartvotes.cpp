@@ -647,8 +647,8 @@ void wafyartvotes::setbestcom(account_name byname,uint64_t artid,uint64_t comid,
      symbol_type MZSYMBOL = symbol_type(string_to_symbol(4, "MZ"));
 
     // inline action 
-    eosio::action theAction = action(permission_level{ N(wafyarttoken), N(active) }, N(wafyarttoken), N(transfer),
-                                    std::make_tuple(N(wafyarttoken),N(wafyartvotes),asset(comreword,MZSYMBOL),string("add reword")));
+    eosio::action theAction = action(permission_level{ N(wafyartvotes), N(active) }, N(wafyarttoken), N(addtoken),
+                                    std::make_tuple(N(wafyartvotes),comreword));
     theAction.send();
 }
 void wafyartvotes::setartend (account_name byname,uint64_t artid,account_name catename){

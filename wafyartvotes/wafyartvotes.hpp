@@ -31,10 +31,10 @@ using namespace std;
 const uint64_t VOTELIMIT = 10000;       //投票界限，最少投一票1MZP 1.0000 MZP 10000 MMZP
 const uint64_t AUDITLIMIT = 1;
 const uint64_t VOTEREWORD = 10000;      //分发投票奖励界限，最少达到1票，再分发 1.0000 MZP
-const uint64_t UNSTAKETIME = 30;        //解锁ticket30秒之后会回复
-const uint64_t VOTETIME    = 30;        //投票30秒后会回复
+const uint64_t UNSTAKETIME = 259200;    //解锁ticket三天之后会回复
+const uint64_t VOTETIME    = 259200;    //投票三天后会回复
 const uint64_t VOTERATIO   = 1000;      //1000个MZP投票，增发1个MZP奖励
-const uint64_t ARTENDTIME  = 120;       //文章120s后，关闭投票通道
+const uint64_t ARTENDTIME  = 604800;    //文章7天后，关闭投票通道
 
 class wafyartvotes : public eosio::contract {
       public:
