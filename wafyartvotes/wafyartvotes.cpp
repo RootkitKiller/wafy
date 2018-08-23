@@ -372,14 +372,14 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
     // 校验参数
     require_auth(byname);
     eosio_assert(getaccblance(byname)>payticket,"错误：该账户没有足够的MZP发布信息");
-    eosio_assert(title.size()<40,"错误：标题不超过40字节");
+    eosio_assert(title.size()<80,"错误：标题不超过80字节");
     eosio_assert(abstract.size()<400,"错误：摘要不超过400字节");
     eosio_assert(arthash.length()==46,"错误：文章hash长度为46字节");
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
     eosio_assert(checkaudit(catename)==true,"错误：该分类审核员还没有满员，无法创建文章");
     cates catemul(_self,_self);
     auto cateit=catemul.find(catename);
-    eosio_assert(payticket>cateit->paylimit,"错误：支付的MZP，不能小于账户的限制");
+    eosio_assert(payticket>=cateit->paylimit,"错误：支付的MZP，不能小于账户的限制");
 
     // 更新文章表
     articles artmul(_self,catename);
@@ -407,6 +407,7 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
     auto allticit=allticmul.find(_self);
     if(allticit==allticmul.end()){
         allticmul.emplace(_self,[&](auto &obj){
+            obj.byname=_self;
             obj.addtick=0;
             obj.devfunds  = payticket/100.00*(cateit->devratio);
         });
@@ -456,7 +457,7 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
 void wafyartvotes::modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t newarthash){
     require_auth(byname);
 
-    eosio_assert(title.size()<40,"错误：标题不超过40字节");
+    eosio_assert(title.size()<80,"错误：标题不超过80字节");
     eosio_assert(abstract.size()<400,"错误：摘要不超过400字节");
 
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
@@ -502,11 +503,11 @@ uint64_t paylimit, uint64_t auditnum,uint64_t comratio ,\
 uint64_t voteratio, uint64_t audiratio, uint64_t devratio ){
     require_auth(byname);
 
-    eosio_assert(getaccblance(byname)>5000000,"错误：该账户没有足够的MZP创建分类，创建分类需要消耗500MZP");
-    eosio_assert(paylimit>10000,"错误：分类下的文章，最少需要支付1MZP");
+    eosio_assert(getaccblance(byname)>=5000000,"错误：该账户没有足够的MZP创建分类，创建分类需要消耗500MZP");
+    eosio_assert(paylimit>=10000,"错误：分类下的文章，最少需要支付1MZP");
     eosio_assert(comratio+voteratio+audiratio+devratio==100,"错误：分成比例相加应为100");
     eosio_assert(comratio>1 && voteratio>1 && audiratio>1 && devratio>1,"错误：分成比例不能存在小于1的方式");
-    eosio_assert(auditnum>1 && auditnum <100,"错误：每个分类的审核员不能小于1位，不能超过100位");
+    eosio_assert(auditnum>=1 && auditnum <100,"错误：每个分类的审核员不能小于1位，不能超过100位");
 
 
     eosio_assert(memo.size()<400,"错误：分类简介需要小于400字节");
@@ -563,7 +564,7 @@ void wafyartvotes::deletescr (account_name byname,account_name catename){
 void wafyartvotes::createcom (account_name byname,string comcontent,account_name catename,uint64_t parid,uint16_t indexnum){
     require_auth(byname);
 
-    eosio_assert(comcontent.size()<400,"错误：评论长度不能超过400字节");
+    eosio_assert(comcontent.size()<1000,"错误：评论长度不能超过1000字节");
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
     eosio_assert(findartid(parid,catename)==true,"错误：文章id不存在");
     eosio_assert(indexnum==1||indexnum==2,"错误：评论等级只能为1或2");

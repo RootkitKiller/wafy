@@ -115,7 +115,7 @@
  (data (i32.const 2272) "wafyvoteaudi\00")
  (data (i32.const 2288) "redeemaud\00")
  (data (i32.const 2304) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\a5\e8\b4\a6\e6\88\b7\e6\b2\a1\e6\9c\89\e8\b6\b3\e5\a4\9f\e7\9a\84MZP\e5\8f\91\e5\b8\83\e4\bf\a1\e6\81\af\00")
- (data (i32.const 2368) "\e9\94\99\e8\af\af\ef\bc\9a\e6\a0\87\e9\a2\98\e4\b8\8d\e8\b6\85\e8\bf\8740\e5\ad\97\e8\8a\82\00")
+ (data (i32.const 2368) "\e9\94\99\e8\af\af\ef\bc\9a\e6\a0\87\e9\a2\98\e4\b8\8d\e8\b6\85\e8\bf\8780\e5\ad\97\e8\8a\82\00")
  (data (i32.const 2416) "\e9\94\99\e8\af\af\ef\bc\9a\e6\91\98\e8\a6\81\e4\b8\8d\e8\b6\85\e8\bf\87400\e5\ad\97\e8\8a\82\00")
  (data (i32.const 2464) "\e9\94\99\e8\af\af\ef\bc\9a\e6\96\87\e7\ab\a0hash\e9\95\bf\e5\ba\a6\e4\b8\ba46\e5\ad\97\e8\8a\82\00")
  (data (i32.const 2512) "\e9\94\99\e8\af\af\ef\bc\9a\e6\9c\aa\e5\ae\9a\e4\b9\89\e8\af\a5\e5\88\86\e7\b1\bb\00")
@@ -135,7 +135,7 @@
  (data (i32.const 3216) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\a5\e5\88\86\e7\b1\bb\e5\b7\b2\e7\bb\8f\e5\ae\9a\e4\b9\89\e8\bf\87\00")
  (data (i32.const 3264) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\a5\e5\88\86\e7\b1\bb\e5\b7\b2\e7\bb\8f\e8\ae\a2\e9\98\85\e8\bf\87\00")
  (data (i32.const 3312) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\a5\e5\88\86\e7\b1\bb\e5\b0\9a\e6\9c\aa\e8\ae\a2\e9\98\85\e8\bf\87\00")
- (data (i32.const 3360) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\84\e8\ae\ba\e9\95\bf\e5\ba\a6\e4\b8\8d\e8\83\bd\e8\b6\85\e8\bf\87400\e5\ad\97\e8\8a\82\00")
+ (data (i32.const 3360) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\84\e8\ae\ba\e9\95\bf\e5\ba\a6\e4\b8\8d\e8\83\bd\e8\b6\85\e8\bf\871000\e5\ad\97\e8\8a\82\00")
  (data (i32.const 3408) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\84\e8\ae\ba\e7\ad\89\e7\ba\a7\e5\8f\aa\e8\83\bd\e4\b8\ba1\e6\88\962\00")
  (data (i32.const 3456) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\84\e8\ae\baid\e4\b8\8d\e5\ad\98\e5\9c\a8\00")
  (data (i32.const 3488) "\e9\94\99\e8\af\af\ef\bc\9a\e8\af\84\e8\ae\ba\e7\ad\89\e7\ba\a7\ef\bc\8c\e5\8f\82\e6\95\b0\e4\b8\ba1\e6\88\96\e8\80\852\00")
@@ -33174,7 +33174,7 @@
   (call $eosio_assert
    (i32.lt_u
     (get_local $10)
-    (i32.const 40)
+    (i32.const 80)
    )
    (i32.const 2368)
   )
@@ -33341,7 +33341,7 @@
    )
   )
   (call $eosio_assert
-   (i64.gt_u
+   (i64.ge_u
     (i64.load offset=384
      (get_local $19)
     )
@@ -34046,6 +34046,12 @@
    (i64.store offset=8
     (get_local $3)
     (i64.const 0)
+   )
+   (i64.store
+    (get_local $3)
+    (i64.load
+     (get_local $0)
+    )
    )
    (i64.store offset=16
     (get_local $3)
@@ -38395,7 +38401,7 @@
   (call $eosio_assert
    (i32.lt_u
     (get_local $9)
-    (i32.const 40)
+    (i32.const 80)
    )
    (i32.const 2368)
   )
@@ -41724,14 +41730,14 @@
      (get_local $0)
      (get_local $1)
     )
-    (i64.const 5000000)
+    (i64.const 4999999)
    )
    (i32.const 2816)
   )
   (call $eosio_assert
    (i64.gt_u
     (get_local $4)
-    (i64.const 10000)
+    (i64.const 9999)
    )
    (i32.const 2912)
   )
@@ -41780,9 +41786,9 @@
    (i64.lt_u
     (i64.add
      (get_local $5)
-     (i64.const -2)
+     (i64.const -1)
     )
-    (i64.const 98)
+    (i64.const 99)
    )
    (i32.const 3088)
   )
@@ -44585,7 +44591,7 @@
   (call $eosio_assert
    (i32.lt_u
     (get_local $7)
-    (i32.const 400)
+    (i32.const 1000)
    )
    (i32.const 3360)
   )
