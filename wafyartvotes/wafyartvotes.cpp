@@ -600,11 +600,13 @@ void wafyartvotes::deletecom (account_name byname,uint64_t id,account_name caten
         comments commul(_self,catename);
         auto compidx=commul.get_index<N(byparid)>();
         auto compit=compidx.find(pid);
-        for(;compit!=compidx.end();compit++){
+        for(;compit!=compidx.end();){
             if(compit->parid==pid&&compit->indexnum==2){
-                compidx.erase(compit);
+                compit=compidx.erase(compit);
                 if(compit==compidx.end())
                     break;
+            }else{
+                compit++;
             }
         }
     }

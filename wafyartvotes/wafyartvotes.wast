@@ -47099,13 +47099,25 @@
         )
         (get_local $8)
        )
-       (br_if $label$4
-        (i32.eqz
-         (i32.load offset=4
+       (i64.store
+        (get_local $9)
+        (tee_local $3
+         (i64.load offset=104
           (get_local $9)
          )
         )
        )
+       (br_if $label$6
+        (tee_local $8
+         (i32.wrap/i64
+          (i64.shr_u
+           (get_local $3)
+           (i64.const 32)
+          )
+         )
+        )
+       )
+       (br $label$4)
       )
       (drop
        (call $_ZN5eosio11multi_indexILy4982429584927490048EN12wafyartvotes7commentEJNS_10indexed_byILy4587597613280264192EN5boost11multi_index13const_mem_funIS2_yXadL_ZNKS2_9get_paridEvEEEEEENS3_ILy4579787416579080192ENS6_IS2_yXadL_ZNKS2_8get_bestEvEEEEEEEE5indexILy4587597613280264192ES7_Ly0ELb0EE14const_iteratorppEv
