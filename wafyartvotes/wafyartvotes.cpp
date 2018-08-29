@@ -566,8 +566,12 @@ void wafyartvotes::createcom (account_name byname,string comcontent,account_name
 
     eosio_assert(comcontent.size()<1000,"错误：评论长度不能超过1000字节");
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
-    eosio_assert(findartid(parid,catename)==true,"错误：文章id不存在");
     eosio_assert(indexnum==1||indexnum==2,"错误：评论等级只能为1或2");
+    if(indexnum==1){
+        eosio_assert(findartid(parid,catename)==true,"错误：文章id不存在");
+    }else{
+        eosio_assert(findcomid(parid,catename)==true,"错误：一级评论id不存在");
+    }
 
     comments commul(_self,catename);
     commul.emplace(_self,[&](auto &obj){
