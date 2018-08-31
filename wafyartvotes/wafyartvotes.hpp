@@ -103,6 +103,7 @@ class wafyartvotes : public eosio::contract {
             string          title;                  //文章标题
             string          abstract;               //文章摘要
             account_name    author;                 //文章作者
+            ipfshash_t      pichash;                //照片ipfs hash
             ipfshash_t      arthash;                //文章保存在ipfs网络上的哈希值
             uint64_t        timestamp;              //文章创建的时间戳
             uint64_t        modifynum;              //文章修改次数，设置为不超过10次
@@ -114,7 +115,7 @@ class wafyartvotes : public eosio::contract {
             uint64_t get_isend() const      { return isend; }           //是否完结索引
             uint64_t get_vnum() const       { return votenum;}          //得票数索引
 
-            EOSLIB_SERIALIZE(article, (id)(votenum)(addtick)(basetick)(title)(abstract)(author)(arthash)(timestamp)(modifynum)(isend))
+            EOSLIB_SERIALIZE(article, (id)(votenum)(addtick)(basetick)(title)(abstract)(author)(pichash)(arthash)(timestamp)(modifynum)(isend))
         };
         typedef multi_index<N(articles),article,
             indexed_by<N(byauthor), const_mem_fun<article,uint64_t,&article::get_author>>,
@@ -252,9 +253,9 @@ class wafyartvotes : public eosio::contract {
         // @abi action
         void voteaud   (account_name byname,uint64_t votenum,account_name catename,account_name auditor);
         // @abi action
-        void createart (account_name byname,string title,string abstract,ipfshash_t arthash,account_name catename,uint64_t payticket);
+        void createart (account_name byname,string title,string abstract,ipfshash_t pichash,ipfshash_t arthash,account_name catename,uint64_t payticket);
         // @abi action
-        void modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t newarthash);
+        void modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t pichash,ipfshash_t newarthash);
         // @abi action
         void deleteart (account_name byname,uint64_t id,account_name catename); 
         // @abi action

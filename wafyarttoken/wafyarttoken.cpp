@@ -108,7 +108,7 @@ void wafyarttoken::add_balance( account_name owner, asset value, account_name ra
    }
 }
 uint64_t wafyarttoken::getmzbal(account_name byname){
-    accounts accomul(N(wafyarttoken),byname);
+    accounts accomul(_self,byname);
     auto accit=accomul.find(MZSYMBOL.name());
 
     if(accit==accomul.end()){
@@ -131,19 +131,19 @@ void wafyarttoken::staketoken(account_name byname,asset quantity){
     eosio_assert(quantity.symbol.name()==MZSYMBOL.name(),"错误：需要抵押MZ token");
     eosio_assert( quantity.is_valid(), "invalid quantity" );
     
-    transfer(byname, N(wafyartvotes), quantity, "stake token");
+    transfer(byname, N(wafycode1234), quantity, "stake token");
 
     // inline action 
-    eosio::action theAction = action(permission_level{ N(wafyarttoken), N(active) }, N(wafyartvotes), N(staketit),
-                                    std::make_tuple(N(wafyarttoken),byname, quantity.amount));
+    eosio::action theAction = action(permission_level{ _self, N(active) }, N(wafycode1234), N(staketit),
+                                    std::make_tuple(_self,byname, quantity.amount));
     theAction.send();
 }
 void wafyarttoken::addtoken(account_name byname,uint64_t amount){
     require_auth(byname);
-    eosio_assert(byname==N(wafyartvotes),"错误：其他账户没有权限调用该方法");
+    eosio_assert(byname==N(wafycode1234),"错误：其他账户没有权限调用该方法");
 
     asset quantity(amount,MZSYMBOL);
 
-    issue(N(wafyartvotes),quantity,"add token");
+    issue(N(wafycode1234),quantity,"add token");
 }
 EOSIO_ABI( wafyarttoken, (create)(issue)(transfer)(staketoken) )

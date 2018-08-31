@@ -15,7 +15,7 @@ uint128_t wafyartvotes::getsenderid(account_name cate){
 void wafyartvotes::staketit(account_name byname,account_name accname,uint64_t amount){
     // 检查签名是否匹配
     require_auth(byname);
-    eosio_assert(byname==N(wafyarttoken),"错误：此帐号没有权限调用此action");
+    eosio_assert(byname==N(wafytoken123),"错误：此帐号没有权限调用此action");
 
     // 更新账户资产表
     acctickets accticmul(_self,_self);
@@ -38,7 +38,7 @@ void wafyartvotes::staketit(account_name byname,account_name accname,uint64_t am
 void wafyartvotes::setstats(account_name byname,account_name accname,uint64_t id){
     require_auth(byname);
 
-    eosio_assert(byname==N(wafyartvotes),"错误：该账户没有权限修改解锁票状态");
+    eosio_assert(byname==_self,"错误：该账户没有权限修改解锁票状态");
 
     accunstakes unstamul(_self,accname);
     auto unstait=unstamul.find(id);
@@ -92,12 +92,12 @@ void wafyartvotes::unstaketit(account_name byname,uint64_t amount){
 
     ttrans.actions.emplace_back(
         permission_level(_self,N(active)),
-        N(wafyartvotes),
+        _self,
         N(setstats),
         make_tuple(_self,byname,unstaid));
     ttrans.actions.emplace_back(
         permission_level(_self,N(active)),
-        N(wafyarttoken),
+        N(wafytoken123),
         N(transfer),
         make_tuple(_self,byname,asset(amount,MZSYMBOL),string("unstake")));
     ttrans.delay_sec =UNSTAKETIME;
@@ -133,7 +133,7 @@ void wafyartvotes::delunstake(account_name byname,uint64_t id){
 void wafyartvotes::redeemvote(account_name byname,account_name accname,account_name catename,uint64_t amount){
     // 验证签名
     require_auth(byname);
-    eosio_assert(byname==N(wafyartvotes),"错误：调用者只能为合约本身");
+    eosio_assert(byname==_self,"错误：调用者只能为合约本身");
     //eosio_assert(type==0||type==1,"错误：类型为0或者1");
 
     // 更新账户投票分布表
@@ -166,7 +166,7 @@ void wafyartvotes::redeemvote(account_name byname,account_name accname,account_n
 void wafyartvotes::redeemart (account_name byname,uint64_t artid,account_name catename,uint64_t amount){
     // 验证签名
     require_auth(byname);
-    eosio_assert(byname==N(wafyartvotes),"错误：调用者只能为合约本身");
+    eosio_assert(byname==_self,"错误：调用者只能为合约本身");
     // 撤回该文章的所得票
     articles artmul(_self,catename);
     auto artit=artmul.find(artid);
@@ -179,7 +179,7 @@ void wafyartvotes::redeemart (account_name byname,uint64_t artid,account_name ca
 void wafyartvotes::redeemaud (account_name byname,account_name audname,account_name catename,uint64_t amount){
     // 验证签名
     require_auth(byname);
-    eosio_assert(byname==N(wafyartvotes),"错误：调用者只能为合约本身");
+    eosio_assert(byname==_self,"错误：调用者只能为合约本身");
     //撤回审核者的所得票
     auditorlists audimul(_self,catename);
     auto audiit=audimul.find(audname);
@@ -254,12 +254,12 @@ void wafyartvotes::voteart(account_name byname,uint64_t votenum,account_name cat
     transaction ttrans;
     ttrans.actions.emplace_back(
         permission_level(_self,N(active)),
-        N(wafyartvotes),
+        _self,
         N(redeemvote),
         make_tuple(_self,byname,catename,votenum));
     ttrans.actions.emplace_back(
         permission_level(_self,N(active)),
-        N(wafyartvotes),
+        _self,
         N(redeemart),
         make_tuple(_self,artid,catename,votenum));
     ttrans.delay_sec =VOTETIME;
@@ -356,24 +356,25 @@ void wafyartvotes::voteaud(account_name byname,uint64_t votenum,account_name cat
     transaction ttrans;
     ttrans.actions.emplace_back(
         permission_level(_self,N(active)),
-        N(wafyartvotes),
+        _self,
         N(redeemvote),
         make_tuple(_self,byname,catename,votenum));
     ttrans.actions.emplace_back(
         permission_level(_self,N(active)),
-        N(wafyartvotes),
+        _self,
         N(redeemaud),
         make_tuple(_self,auditor,catename,votenum));
     ttrans.delay_sec =VOTETIME;
     ttrans.send(voteaudiid,_self);
 }
 // 创建文章
-void wafyartvotes::createart (account_name byname,string title,string abstract,ipfshash_t arthash,account_name catename,uint64_t payticket){
+void wafyartvotes::createart (account_name byname,string title,string abstract,ipfshash_t pichash,ipfshash_t arthash,account_name catename,uint64_t payticket){
     // 校验参数
     require_auth(byname);
     eosio_assert(getaccblance(byname)>payticket,"错误：该账户没有足够的MZP发布信息");
     eosio_assert(title.size()<80,"错误：标题不超过80字节");
     eosio_assert(abstract.size()<400,"错误：摘要不超过400字节");
+    eosio_assert(pichash.length()==46||pichash.length()==0,"错误：图片hash长度为0或者46字节");
     eosio_assert(arthash.length()==46,"错误：文章hash长度为46字节");
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
     eosio_assert(checkaudit(catename)==true,"错误：该分类审核员还没有满员，无法创建文章");
@@ -392,6 +393,7 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
         obj.title=title;
         obj.abstract=abstract;
         obj.author=byname;
+        obj.pichash=pichash;
         obj.arthash=arthash;
         obj.timestamp=now();
         obj.modifynum=0;
@@ -447,14 +449,14 @@ void wafyartvotes::createart (account_name byname,string title,string abstract,i
     transaction ttrans;
     ttrans.actions.emplace_back(
         permission_level(_self,N(active)),
-        N(wafyartvotes),
+        _self,
         N(setartend),
         make_tuple(_self,artid,catename));
     ttrans.delay_sec =ARTENDTIME;
     ttrans.send(setbestid,_self);
 }
 // 修改文章
-void wafyartvotes::modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t newarthash){
+void wafyartvotes::modifyart (account_name byname,string title,string abstract,uint64_t id,account_name catename,ipfshash_t pichash,ipfshash_t newarthash){
     require_auth(byname);
 
     eosio_assert(title.size()<80,"错误：标题不超过80字节");
@@ -462,6 +464,7 @@ void wafyartvotes::modifyart (account_name byname,string title,string abstract,u
 
     eosio_assert(findcate(catename)==true,"错误：未定义该分类");
     eosio_assert(newarthash.length()==46,"错误：文章hash长度为46字节");
+    eosio_assert(pichash.length()==46||pichash.length()==0,"错误：照片hash长度为46字节或0字节");
 
     articles artmul(_self,catename);
     auto artit=artmul.find(id);
@@ -474,6 +477,7 @@ void wafyartvotes::modifyart (account_name byname,string title,string abstract,u
         obj.title=title;
         obj.abstract=abstract;
         obj.arthash=newarthash;
+        obj.pichash=pichash;
     });
 }
 // 删除文章
@@ -654,13 +658,13 @@ void wafyartvotes::setbestcom(account_name byname,uint64_t artid,uint64_t comid,
      symbol_type MZSYMBOL = symbol_type(string_to_symbol(4, "MZ"));
 
     // inline action 
-    eosio::action theAction = action(permission_level{ N(wafyartvotes), N(active) }, N(wafyarttoken), N(addtoken),
-                                    std::make_tuple(N(wafyartvotes),comreword));
+    eosio::action theAction = action(permission_level{ _self, N(active) }, N(wafytoken123), N(addtoken),
+                                    std::make_tuple(_self,comreword));
     theAction.send();
 }
 void wafyartvotes::setartend (account_name byname,uint64_t artid,account_name catename){
     require_auth(byname);
-    eosio_assert(byname==N(wafyartvotes),"错误：该账户没有权限设置文章结束");
+    eosio_assert(byname==_self,"错误：该账户没有权限设置文章结束");
 
     articles artmul(_self,catename);
     auto artit=artmul.find(artid);
