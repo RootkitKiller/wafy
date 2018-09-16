@@ -1,4 +1,4 @@
-# wafy
+# wafy 基于EOS+ipfs的寻人启事DAPP
 wafy是waiting for you 寻人启事项目的智能合约，目前部署在EOS kylin测试网。
 
 项目体验地址：http://119.28.52.50:3000/#/home
